@@ -10,8 +10,8 @@ CORS(app)  # Allow requests from frontend
 
 load_dotenv()  # Load environment variables from .env file
 
-# Initialize OpenAI client (Remove 'project')
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))  # Get API key from environment variable
+# Initialize OpenAI client
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 STATS_FILE = "stats.json"
 
@@ -44,7 +44,7 @@ def shorten_sms():
 
     # OpenAI API call to shorten message using GPT-4o-mini
     prompt = f"""Shorten this SMS message to an explicit maximum of {max_chars} characters whilst keeping the meaning. Use UK English spelling.
-                 Only if you must, remove unnecessary punctuation, spacing and manners to acheive the maximum limmit specified. 
+                 Only if you must, remove unnecessary punctuation, spacing and manners to acheive the maximum limit specified. 
                  Provide only the shortened SMS in your response. 
                  Original message: {original_text}"""
 
@@ -63,13 +63,13 @@ def shorten_sms():
         # Calculate cost savings
         original_sms_count = (original_length // 160) + 1
         new_sms_count = (shortened_length // 160) + 1
-        cost_savings = (original_sms_count - new_sms_count) * SMS_COST_PER_FRAGMENT
+        cost_savings = max(0, (original_sms_count - new_sms_count) * SMS_COST_PER_FRAGMENT)  # Prevent negative savings
 
         # Load and update stats
         stats = load_stats()
         stats["total_sms_shortened"] += 1
         stats["total_characters_saved"] += characters_saved
-        stats["total_cost_saved"] += cost_savings
+        stats["total_cost_saved"] += cost_savings  # ✅ Store the cumulative savings
 
         save_stats(stats)  # Save updated stats
 
@@ -89,7 +89,11 @@ def shorten_sms():
 @app.route('/stats', methods=['GET'])
 def get_stats():
     stats = load_stats()
-    return jsonify(stats)
+    return jsonify({
+        "total_sms_shortened": stats["total_sms_shortened"],
+        "total_characters_saved": stats["total_characters_saved"],
+        "total_cost_saved": round(stats["total_cost_saved"], 2)  # ✅ Ensure correct value is returned
+    })
 
 if __name__ == '__main__':
     app.run(debug=True)
