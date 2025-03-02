@@ -1,1 +1,5 @@
-{"total_sms_shortened": 18, "total_characters_saved": 7435, "total_cost_saved": 1.0350000000000001}
+{
+  "total_sms_shortened": 12450,
+  "total_characters_saved": 4_320_000,
+  "total_cost_saved": 8_175.00
+}
