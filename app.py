@@ -36,8 +36,10 @@ def shorten_urls_in_text(text):
             res = requests.get(f'https://tinyurl.com/api-create.php?url={url}')
             if res.status_code == 200:
                 text = text.replace(url, res.text)
-        except:
-            pass
+            else:
+                print(f"[URL Shorten] Failed to shorten {url}. Status: {res.status_code}, Response: {res.text}")
+        except Exception as e:
+            print(f"[URL Shorten] Exception while shortening {url}: {e}")
     return text
 
 @app.route('/shorten', methods=['POST'])
