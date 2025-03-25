@@ -42,6 +42,7 @@ def shorten_urls_in_text(text):
             print(f"[URL Shorten] Exception while shortening {url}: {e}")
     return text
 
+
 @app.route('/shorten', methods=['POST'])
 def shorten_sms():
     data = request.json
@@ -92,4 +93,7 @@ def shorten_sms():
             "new_sms_count": new_sms_count
         })
 
-    except Exception
+    except Exception as e:
+        print(f"[OpenAI Error] {e}")
+        return jsonify({"error": str(e)}), 500
+
