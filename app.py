@@ -49,6 +49,8 @@ def shorten_sms():
     original_text = data.get("text", "")
     max_chars = int(data.get("max_chars", 160))
     shorten_urls = data.get("shorten_urls", True)
+    business_sector = data.get("business_sector", "General")
+
 
     if not original_text:
         return jsonify({"error": "No text provided"}), 400
@@ -58,11 +60,14 @@ def shorten_sms():
 
     url_instruction = "Remove https:// from links but keep the rest intact." if shorten_urls else ""
 
+    sector_instruction = f" Adjust the tone to suit the {business_sector} sector." if business_sector != "General" else ""
+    
     prompt = f"""Shorten this SMS message to an explicit maximum of {max_chars} characters whilst keeping the meaning. Use UK English spelling.
     Only if you must, remove unnecessary punctuation, spacing and manners to achieve the maximum limit specified.
-    {url_instruction} If there are multiple links make sure you keep them all in the final message.
+    {url_instruction}{sector_instruction} If there are multiple links make sure you keep them all in the final message.
     Provide only the shortened SMS in your response.
     Original message: {original_text}"""
+
 
 
     try:
