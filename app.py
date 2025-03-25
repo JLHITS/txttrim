@@ -55,11 +55,12 @@ def shorten_sms():
 
     if shorten_urls:
         original_text = shorten_urls_in_text(original_text)
-
-    prompt = f"""Shorten this SMS message to an explicit maximum of {max_chars} characters whilst keeping the meaning. Use UK English spelling.
-                 Only if you must, remove unnecessary punctuation, spacing and manners to acheive the maximum limit specified. 
-                 Provide only the shortened SMS in your response. Remove any https:// from URL links but keep the rest intact.
-                 Original message: {original_text}"""
+        prompt = f"""Shorten this SMS message to an explicit maximum of {max_chars} characters whilst keeping the meaning. Use UK English spelling.
+        Only if you must, remove unnecessary punctuation, spacing and manners to achieve the maximum limit specified. 
+        If the message includes shortened URLs (e.g. tinyurl.com/), do not cut them off or remove any part of them — leave them whole.
+        Remove https:// from links but keep the rest intact.
+        Provide only the shortened SMS in your response.
+        Original message: {original_text}"""
 
     try:
         response = client.chat.completions.create(
