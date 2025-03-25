@@ -97,3 +97,4 @@ def shorten_sms():
         print(f"[OpenAI Error] {e}")
         return jsonify({"error": str(e)}), 500
 
+
