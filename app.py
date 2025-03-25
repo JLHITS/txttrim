@@ -58,7 +58,7 @@ def shorten_sms():
 
     prompt = f"""Shorten this SMS message to an explicit maximum of {max_chars} characters whilst keeping the meaning. Use UK English spelling.
                  Only if you must, remove unnecessary punctuation, spacing and manners to acheive the maximum limit specified. 
-                 Provide only the shortened SMS in your response. 
+                 Provide only the shortened SMS in your response. Remove any https:// from URL links but keep the rest intact.
                  Original message: {original_text}"""
 
     try:
