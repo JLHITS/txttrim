@@ -62,13 +62,18 @@ def shorten_sms():
 
     sector_instruction = f" Adjust the tone to suit the {business_sector} sector." if business_sector != "General" else ""
     
-    prompt = f"""Shorten this SMS message to an explicit maximum of {max_chars} characters whilst keeping the meaning. Use UK English spelling.
-    Only if you must, remove unnecessary punctuation, spacing and manners to achieve the maximum limit specified.
-    {url_instruction}{sector_instruction} If there are multiple links make sure you keep them all in the final message.
-    Provide only the shortened SMS in your response.
-    Original message: {original_text}"""
+prompt = f"""
+You are a precise SMS message shortener. Your task is to shorten the following message to an **absolute maximum of {max_chars} characters**. The shortened message must retain the original meaning and tone (UK English spelling).
 
-
+- Be as concise as possible.
+- If needed, remove manners, filler words, or punctuation.
+- If multiple links are included, all must remain in the final message.
+- Do NOT exceed {max_chars} characters under any circumstance.
+- Provide only the shortened SMS with no extra text or explanation.
+- {url_instruction}
+- {sector_instruction}
+Original message: {original_text}
+"""
 
     try:
         response = client.chat.completions.create(
@@ -78,6 +83,9 @@ def shorten_sms():
         )
 
         shortened_text = response.choices[0].message.content.strip()
+        if len(shortened_text) > max_chars:
+            shortened_text = shortened_text[:max_chars].rstrip(". ,")
+            
         original_length = len(original_text)
         shortened_length = len(shortened_text)
         characters_saved = original_length - shortened_length
