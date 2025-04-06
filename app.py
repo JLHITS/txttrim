@@ -31,16 +31,26 @@ def save_stats(stats):
 def shorten_urls_in_text(text):
     url_pattern = re.compile(r'https?://\S+')
     urls = url_pattern.findall(text)
+    shortened_map = {}
+
     for url in urls:
+        if url in shortened_map:
+            continue  # Avoid shortening duplicates multiple times
         try:
             res = requests.get(f'https://tinyurl.com/api-create.php?url={url}')
             if res.status_code == 200:
-                text = text.replace(url, res.text)
+                shortened_map[url] = res.text
             else:
                 print(f"[URL Shorten] Failed to shorten {url}. Status: {res.status_code}, Response: {res.text}")
         except Exception as e:
             print(f"[URL Shorten] Exception while shortening {url}: {e}")
-    return text
+
+    # Replace all URLs in the original text with their shortened version
+    def replace_match(match):
+        url = match.group(0)
+        return shortened_map.get(url, url)
+
+    return url_pattern.sub(replace_match, text)
 
 
 @app.route('/shorten', methods=['POST'])
@@ -51,7 +61,6 @@ def shorten_sms():
     shorten_urls = data.get("shorten_urls", True)
     business_sector = data.get("business_sector", "General")
 
-
     if not original_text:
         return jsonify({"error": "No text provided"}), 400
 
@@ -59,10 +68,9 @@ def shorten_sms():
         original_text = shorten_urls_in_text(original_text)
 
     url_instruction = "Remove https:// from links but keep the rest intact." if shorten_urls else ""
-
     sector_instruction = f" Adjust the tone to suit the {business_sector} sector." if business_sector != "General" else ""
-    
-prompt = f"""
+
+    prompt = f"""
 You are a precise SMS message shortener. Your task is to shorten the following message to an **absolute maximum of {max_chars} characters**. The shortened message must retain the original meaning and tone (UK English spelling).
 
 - Be as concise as possible.
