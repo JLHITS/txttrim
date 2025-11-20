@@ -53,7 +53,7 @@ def shorten_sms():
     do_shorten_urls = bool(data.get("shorten_urls", True))
     business_sector = data.get("business_sector", "General")
     protect_variables = bool(data.get("protect_variables", True))
-    target_language = data.get("target_language", "English") # <--- NEW
+    target_language = data.get("target_language", "English")
 
     if not original_text:
         return jsonify({"error": "No text provided"}), 400
@@ -62,46 +62,49 @@ def shorten_sms():
     if do_shorten_urls:
         processed_text = shorten_urls_in_text(processed_text)
 
-    # Build Instructions
-    sector_instruction = (
-        f" Adjust the tone to suit the {business_sector} sector."
-        if business_sector and business_sector != "General"
-        else ""
-    )
-
-    protection_instruction = ""
+    # --- PROMPT ENGINEERING ---
+    
+    # 1. Base Role
+    role = "You are a precise SMS message shortener and translator."
+    
+    # 2. Protection Rules
+    protection = ""
     if protect_variables:
-        protection_instruction = "- CRITICAL: Do NOT change, delete, or reword any text enclosed in [square brackets], e.g. [Date] or [Patient Name]. Keep them exactly as provided."
+        protection = "CRITICAL: Do NOT change, delete, or translate any text inside [square brackets] (e.g. [Date]). Keep them exactly as is."
 
-    # Language Instruction
-    language_instruction = ""
-    if target_language != "English":
-        language_instruction = f"- CRITICAL: Output the final shortened message in {target_language}."
+    # 3. The Core Task
+    if target_language and target_language != "English":
+        task = f"Task: Translate the message to {target_language} FIRST, and THEN shorten the translated text to under {max_chars} characters."
+    else:
+        task = f"Task: Shorten the message to under {max_chars} characters in English."
 
+    # 4. Construct the final prompt
     prompt = f"""
-You are a precise SMS message shortener. Your task is to shorten the following message to an **absolute maximum of {max_chars} characters**. The shortened message must retain the original meaning.
-
-- Be as concise as possible.
-- If needed, remove manners, filler words, or punctuation.
-- If multiple links are included, all must remain in the final message.
-- Do NOT exceed {max_chars} characters under any circumstance.
-- Provide only the shortened SMS with no extra text or explanation.
-{language_instruction}
-{protection_instruction}
--{sector_instruction}
-Original message: {processed_text}
-"""
+    {role}
+    {task}
+    
+    Rules:
+    - Maintain the original meaning.
+    - Tone: {business_sector}.
+    - {protection}
+    - If multiple links exist, keep them all.
+    - Provide ONLY the final SMS text. No intro/outro.
+    
+    Message to process: {processed_text}
+    """
 
     try:
+        # Note: We give a bit more token headroom for translations
         response = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[{"role": "system", "content": prompt}],
-            max_tokens=max_chars + 50, # Allow buffer for translation
+            max_tokens=max_chars + 100, 
         )
 
         shortened_text = (response.choices[0].message.content or "").strip()
 
-        # Safety truncate (only if English, as other languages might need more space/chars logic)
+        # Only apply hard character limit truncate if English. 
+        # Truncating foreign languages blindly can break words/grammar badly.
         if target_language == "English" and len(shortened_text) > max_chars:
             shortened_text = shortened_text[:max_chars].rstrip(". ,")
 
