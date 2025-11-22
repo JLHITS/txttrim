@@ -2,6 +2,8 @@ import os
 import re
 import urllib.parse
 import requests
+import logging # <--- NEW
+import time # <--- NEW
 from flask import Flask, request, jsonify
 from openai import OpenAI
 from flask_cors import CORS
@@ -15,6 +17,10 @@ app = Flask(__name__)
 CORS(app)
 load_dotenv()
 
+# Configure Logging to print to Render Console
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
+
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 SESSION = requests.Session()
 SESSION.headers.update({"User-Agent": "TxtTrim/1.0"})
@@ -27,7 +33,7 @@ def _shorten_with_isgd(url: str) -> str | None:
         if r.status_code == 200 and r.text.startswith("http"):
             return r.text.strip()
     except Exception as e:
-        print(f"[is.gd Error] {e}")
+        logger.error(f"[is.gd Error] {e}") # <--- LOG ERROR
     return None
 
 def shorten_urls_in_text(text: str) -> str:
@@ -47,6 +53,7 @@ def _sms_fragments(length: int) -> int:
 # --- ROUTES ---
 @app.route('/shorten', methods=['POST'])
 def shorten_sms():
+    start_time = time.time() # <--- Start Timer
     data = request.json or {}
     original_text = data.get("text", "")
     max_chars = int(data.get("max_chars", 160))
@@ -58,27 +65,25 @@ def shorten_sms():
     if not original_text:
         return jsonify({"error": "No text provided"}), 400
 
+    # Log the attempt (Privacy safe: don't log the actual PII text)
+    logger.info(f"Processing: Lang={target_language} | Sector={business_sector} | Length={len(original_text)}")
+
     processed_text = original_text
     if do_shorten_urls:
         processed_text = shorten_urls_in_text(processed_text)
 
     # --- PROMPT ENGINEERING ---
-    
-    # 1. Base Role
     role = "You are a precise SMS message shortener and translator."
     
-    # 2. Protection Rules
     protection = ""
     if protect_variables:
         protection = "CRITICAL: Do NOT change, delete, or translate any text inside [square brackets] (e.g. [Date]). Keep them exactly as is."
 
-    # 3. The Core Task
     if target_language and target_language != "English":
         task = f"Task: Translate the message to {target_language} FIRST, and THEN shorten the translated text to under {max_chars} characters."
     else:
         task = f"Task: Shorten the message to under {max_chars} characters in English."
 
-    # 4. Construct the final prompt
     prompt = f"""
     {role}
     {task}
@@ -94,7 +99,6 @@ def shorten_sms():
     """
 
     try:
-        # Note: We give a bit more token headroom for translations
         response = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[{"role": "system", "content": prompt}],
@@ -103,10 +107,12 @@ def shorten_sms():
 
         shortened_text = (response.choices[0].message.content or "").strip()
 
-        # Only apply hard character limit truncate if English. 
-        # Truncating foreign languages blindly can break words/grammar badly.
         if target_language == "English" and len(shortened_text) > max_chars:
             shortened_text = shortened_text[:max_chars].rstrip(". ,")
+
+        # Log Success
+        duration = round(time.time() - start_time, 2)
+        logger.info(f"Success: {duration}s | Old:{len(original_text)} -> New:{len(shortened_text)} | Tokens: {response.usage.total_tokens}")
 
         return jsonify({
             "original_text": processed_text,
@@ -117,6 +123,7 @@ def shorten_sms():
         })
 
     except Exception as e:
+        logger.error(f"AI Error: {str(e)}") # <--- LOG ERROR
         return jsonify({"error": str(e)}), 500
 
 @app.route('/health', methods=['GET'])
